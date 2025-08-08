@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anjo das Estrelas - Jogo Cristão</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; overflow: hidden; height: 100%;
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Arial', sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      flex-direction: column; user-select: none;
+    }
+    #gameTitle {
+      font-size: 52px; font-weight: bold; 
+      background: linear-gradient(45deg, #ffd700, #fff, #87ceeb);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      z-index: 3; text-align: center;
+    }
+    #gameCanvas {
+      display: block; position: absolute; top: 0; left: 0; z-index: 0;
+      cursor: none;
+    }
+    #startBtn {
+      padding: 20px 40px; font-size: 24px; 
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+      color: white; border: none; border-radius: 15px; cursor: pointer; z-index: 3;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      transition: transform 0.3s ease;
+    }
+    #startBtn:hover {
+      transform: scale(1.05);
+    }
+    #hud {
+      position: absolute; top: 20px; left: 20px; 
+      background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+      padding: 15px; border-radius: 15px; font-size: 18px; color: white;
+      z-index: 2; line-height: 1.6; border: 1px solid rgba(255,255,255,0.2);
+    }
+    #blessingsOverlay {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.95);
+      padding: 30px; border-radius: 20px;
+      box-shadow: 0 0 30px rgba(255,215,0,0.8);
+      font-size: 22px; line-height: 2; white-space: pre-wrap;
+      display: none; z-index: 3; text-align: center;
+      max-width: 80%; color: #2c3e50;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+    #gameOverScreen {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      padding: 40px; border-radius: 20px;
+      box-shadow: 0 0 50px rgba(255,0,0,0.8);
+      font-size: 28px; color: white;
+      display: none; z-index: 4; text-align: center;
+      border: 3px solid #e74c3c;
+      animation: gameOverGlow 2s ease-in-out infinite alternate;
+    }
+    @keyframes gameOverGlow {
+      0% { box-shadow: 0 0 30px rgba(255,0,0,0.8); }
+      100% { box-shadow: 0 0 50px rgba(255,0,0,1); }
+    }
+    #scoreTable {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      padding: 30px; border-radius: 20px;
+      box-shadow: 0 0 30px rgba(102,126,234,0.8);
+      color: white; display: none; z-index: 3; text-align: center;
+      max-width: 90%; max-height: 80%; overflow-y: auto;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    #scoreTable h2 {
+      margin-top: 0; font-size: 32px; color: #ffd700;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    #scoreTable table {
+      width: 100%; border-collapse: collapse; margin-top: 20px;
+    }
+    #scoreTable th, #scoreTable td {
+      padding: 12px; border: 1px solid rgba(255,255,255,0.3);
+      font-size: 18px;
+    }
+    #scoreTable th {
+      background: rgba(255,255,255,0.2); font-weight: bold;
+    }
+    #closeScoreBtn {
+      margin-top: 20px; padding: 12px 30px; font-size: 18px;
+      background: #e74c3c; color: white; border: none; border-radius: 10px;
+      cursor: pointer; transition: background 0.3s ease;
+    }
+    #closeScoreBtn:hover {
+      background: #c0392b;
+    }
+    @keyframes glow {
+      0% { box-shadow: 0 0 30px rgba(255,215,0,0.8); }
+      100% { box-shadow: 0 0 50px rgba(255,215,0,1); }
+    }
+    .star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 2s infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameTitle">✨ Anjo das Estrelas ✨</div>
+  <button id="startBtn">🕊️ Voar pelos Céus 🕊️</button>
+  <canvas id="gameCanvas"></canvas>
+  <div id="hud">
+    <div id="stars">⭐ Estrelas: 0</div>
+    <div id="blessings">🙏 Bênçãos: 0</div>
+    <div id="record">👑 Recorde: 0</div>
+    <div id="lives">💖 Vidas: 3</div>
+    <div id="level">🚀 Nível: 1</div>
+    <div id="timer">⏰ Tempo: 0s</div>
+  </div>
+  <div id="blessingsOverlay"></div>
+  
+  <div id="gameOverScreen">
+    <h2>💀 GAME OVER 💀</h2>
+    <button id="restartBtn" style="margin-top: 20px; padding: 15px 30px; font-size: 20px; background: #27ae60; color: white; border: none; border-radius: 10px; cursor: pointer;">🔄 Jogar Novamente</button>
+  </div>
+
+  <div id="scoreTable">
+    <h2>🏆 Tabela de Pontuações 🏆</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Posição</th>
+          <th>Pontuação</th>
+          <th>Estrelas</th>
+          <th>Bênçãos</th>
+          <th>Nível</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody id="scoreTableBody">
+      </tbody>
+    </table>
+    <button id="closeScoreBtn">❌ Fechar</button>
+  </div>
+
+  <script>
+    // CONFIGURAÇÕES
+    const config = {
+      angelSpeed: 5,
+      starSpawnRate: 0.98,
+      cloudSpawnRate: 0.995,
+      blessingSpawnRate: 0.999,
+      obstacleSpawnRate: 0.996,
+      baseItemSpeed: 4,
+      baseObstacleSpeed: 2,
+      levelUpTime: 20000 // 20 segundos
+    };
+
+    // ELEMENTOS DOM
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const starsDiv = document.getElementById("stars");
+    const blessingsDiv = document.getElementById("blessings");
+    const recordDiv = document.getElementById("record");
+    const livesDiv = document.getElementById("lives");
+    const levelDiv = document.getElementById("level");
+    const timerDiv = document.getElementById("timer");
+    const blessingsOverlay = document.getElementById("blessingsOverlay");
+    const gameTitle = document.getElementById("gameTitle");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const finalStats = document.getElementById("finalStats");
+    const restartBtn = document.getElementById("restartBtn");
+    const scoreTable = document.getElementById("scoreTable");
+    const scoreTableBody = document.getElementById("scoreTableBody");
+    const closeScoreBtn = document.getElementById("closeScoreBtn");
+
+    // ESTADO DO JOGO
+    let gameRunning = false;
+    let stars = 0;
+    let blessings = 0;
+    let lives = 3;
+    let level = 1;
+    let gameTime = 0;
+    let gameStartTime = 0;
+    let record = localStorage.getItem("angelRecord") || 0;
+    let animationFrame = 0;
+    let backgroundStars = [];
+    let gameStars = [];
+    let clouds = [];
+    let blessingItems = [];
+    let obstacles = [];
+
+    // PERSONAGEM ANJO
+    const angel = {
+      x: 100,
+      y: 300,
+      width: 50,
+      height: 50,
+      targetY: 300,
+      wingBeat: 0,
+      glowIntensity: 0
+    };
+
+    const blessingsTexts = [
+      "🕊️ 'O Senhor te abençoe e te guarde' - Números 6:24 ✨",
+      "💝 'Deus é amor' - 1 João 4:8 ✨", 
+      "🌟 'Tudo coopera para o bem' - Romanos 8:28 ✨",
+      "🙏 'Orai sem cessar' - 1 Tessalonicenses 5:17 ✨",
+      "✝️ 'Jesus é o caminho' - João 14:6 ✨",
+      "🌈 'Grande é a Tua fidelidade' - Lamentações 3:23 ✨"
+    ];
+
+    // SISTEMA DE PONTUAÇÃO
+    function loadScores() {
+      const scores = localStorage.getItem("angelScores");
+      return scores ? JSON.parse(scores) : [];
+    }
+
+    function saveScore(score) {
+      let scores = loadScores();
+      const newScore = {
+        score: score,
+        stars: stars,
+        blessings: blessings,
+        level: level,
+        date: new Date().toLocaleDateString('pt-BR')
+      };
+      scores.push(newScore);
+      scores.sort((a, b) => b.score - a.score);
+      scores = scores.slice(0, 10); // Manter apenas top 10
+      localStorage.setItem("angelScores", JSON.stringify(scores));
+    }
+
+    function showScoreTable() {
+      const scores = loadScores();
+      scoreTableBody.innerHTML = '';
+      
+      scores.forEach((score, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${index + 1}°</td>
+          <td>${score.score}</td>
+          <td>${score.stars}</td>
+          <td>${score.blessings}</td>
+          <td>${score.level}</td>
+          <td>${score.date}</td>
+        `;
+        scoreTableBody.appendChild(row);
+      });
+      
+      if (scores.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="6">Nenhuma pontuação registrada ainda</td>';
+        scoreTableBody.appendChild(row);
+      }
+      
+      scoreTable.style.display = "block";
+    }
+
+    // REDIMENSIONAR CANVAS
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      angel.targetY = canvas.height / 2;
+      createBackgroundStars();
+    }
+
+    function createBackgroundStars() {
+      backgroundStars = [];
+      for (let i = 0; i < 100; i++) {
+        backgroundStars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 1,
+          twinkle: Math.random() * 100
+        });
+      }
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // FUNÇÕES DE DESENHO
+    function drawCircle(x, y, radius, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawStar(x, y, size, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI) / 5;
+        const radius = i % 2 === 0 ? size : size / 2;
+        const px = x + Math.cos(angle) * radius;
+        const py = y + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawAngel() {
+      const x = angel.x;
+      const y = angel.y;
+      const wingOffset = Math.sin(angel.wingBeat) * 8;
+      
+      // Auréola brilhante
+      const gradient = ctx.createRadialGradient(x, y - 20, 0, x, y - 20, 25);
+      gradient.addColorStop(0, `rgba(255, 215, 0, ${0.8 + angel.glowIntensity})`);
+      gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - 25, y - 45, 50, 50);
+
+      // Asas (com movimento)
+      ctx.fillStyle = `rgba(255, 255, 255, 0.9)`;
+      ctx.beginPath();
+      // Asa esquerda
+      ctx.ellipse(x - 15, y, 20, 35 + wingOffset, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      // Asa direita
+      ctx.beginPath();
+      ctx.ellipse(x + 15, y, 20, 35 + wingOffset, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Corpo do anjo
+      drawCircle(x, y, 15, '#fdbcb4');
+      
+      // Cabeça
+      drawCircle(x, y - 20, 12, '#fdbcb4');
+      
+      // Olhos
+      drawCircle(x - 5, y - 22, 2, '#2c3e50');
+      drawCircle(x + 5, y - 22, 2, '#2c3e50');
+      
+      // Sorriso
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 18, 4, 0, Math.PI);
+      ctx.stroke();
+
+      // Túnica branca
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 10, 18, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cruz no peito
+      ctx.strokeStyle = '#8e44ad';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x, y + 5);
+      ctx.moveTo(x - 4, y);
+      ctx.lineTo(x + 4, y);
+      ctx.stroke();
+
+      angel.wingBeat += 0.3;
+      angel.glowIntensity = Math.sin(animationFrame * 0.1) * 0.2;
+    }
+
+    function drawBackgroundStars() {
+      backgroundStars.forEach(star => {
+        const alpha = 0.3 + Math.sin(star.twinkle + animationFrame * 0.02) * 0.3;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawGameItems() {
+      // Estrelas coletáveis
+      gameStars.forEach(star => {
+        const pulse = 1 + Math.sin(animationFrame * 0.1 + star.phase) * 0.2;
+        drawStar(star.x, star.y, star.size * pulse, '#ffd700');
+      });
+
+      // Bênçãos especiais
+      blessingItems.forEach(blessing => {
+        const glow = Math.sin(animationFrame * 0.15) * 0.5 + 0.5;
+        ctx.shadowColor = '#ff69b4';
+        ctx.shadowBlur = 20 * glow;
+        drawStar(blessing.x, blessing.y, 12, '#ff69b4');
+        ctx.shadowBlur = 0;
+      });
+
+      // Nuvens escuras (obstáculos)
+      obstacles.forEach(cloud => {
+        ctx.fillStyle = '#2c3e50';
+        ctx.beginPath();
+        ctx.arc(cloud.x - 10, cloud.y, 15, 0, Math.PI * 2);
+        ctx.arc(cloud.x, cloud.y - 5, 20, 0, Math.PI * 2);
+        ctx.arc(cloud.x + 10, cloud.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Nuvens decorativas
+      clouds.forEach(cloud => {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(cloud.x - 15, cloud.y, 20, 0, Math.PI * 2);
+        ctx.arc(cloud.x, cloud.y - 8, 25, 0, Math.PI * 2);
+        ctx.arc(cloud.x + 15, cloud.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function getCurrentSpeed() {
+      return config.baseItemSpeed + (level - 1) * 1.5;
+    }
+
+    function getCurrentObstacleSpeed() {
+      return config.baseObstacleSpeed + (level - 1) * 1;
+    }
+
+    function spawnItems() {
+      const currentSpeed = getCurrentSpeed();
+      
+      // Estrelas
+      if (Math.random() > config.starSpawnRate) {
+        gameStars.push({
+          x: canvas.width,
+          y: Math.random() * (canvas.height - 100) + 50,
+          size: 8 + Math.random() * 5,
+          phase: Math.random() * Math.PI * 2,
+          speed: currentSpeed
+        });
+      }
+
+      // Bênçãos especiais
+      if (Math.random() > config.blessingSpawnRate) {
+        blessingItems.push({
+          x: canvas.width,
+          y: Math.random() * (canvas.height - 100) + 50,
+          text: blessingsTexts[Math.floor(Math.random() * blessingsTexts.length)],
+          speed: currentSpeed * 0.8
+        });
+      }
+
+      // Nuvens decorativas
+      if (Math.random() > config.cloudSpawnRate) {
+        clouds.push({
+          x: canvas.width,
+          y: Math.random() * canvas.height,
+          speed: 1 + Math.random() * 2 + level * 0.5
+        });
+      }
+
+      // Obstáculos (nuvens escuras)
+      if (Math.random() > config.obstacleSpawnRate && stars > 5) {
+        obstacles.push({
+          x: canvas.width,
+          y: Math.random() * (canvas.height - 100) + 50,
+          speed: getCurrentObstacleSpeed() + Math.random() * 2
+        });
+      }
+    }
+
+    function updateItems() {
+      // Mover e filtrar estrelas
+      gameStars = gameStars.filter(star => {
+        star.x -= star.speed;
+        return star.x > -20;
+      });
+
+      // Mover e filtrar bênçãos
+      blessingItems = blessingItems.filter(blessing => {
+        blessing.x -= blessing.speed;
+        return blessing.x > -20;
+      });
+
+      // Mover nuvens
+      clouds = clouds.filter(cloud => {
+        cloud.x -= cloud.speed;
+        return cloud.x > -50;
+      });
+
+      // Mover obstáculos
+      obstacles = obstacles.filter(obstacle => {
+        obstacle.x -= obstacle.speed;
+        return obstacle.x > -50;
+      });
+    }
+
+    function updateLevel() {
+      const newLevel = Math.floor(gameTime / config.levelUpTime) + 1;
+      if (newLevel > level) {
+        level = newLevel;
+        showBlessing(`🚀 NÍVEL ${level}! 🚀\nVelocidade aumentada!`);
+      }
+    }
+
+    function checkCollisions() {
+      // Colisão com estrelas
+      gameStars = gameStars.filter(star => {
+        const dist = Math.hypot(star.x - angel.x, star.y - angel.y);
+        if (dist < 25) {
+          stars++;
+          return false;
+        }
+        return true;
+      });
+
+      // Colisão com bênçãos
+      blessingItems = blessingItems.filter(blessing => {
+        const dist = Math.hypot(blessing.x - angel.x, blessing.y - angel.y);
+        if (dist < 30) {
+          blessings++;
+          showBlessing(blessing.text);
+          return false;
+        }
+        return true;
+      });
+
+      // Colisão com obstáculos (nuvens escuras)
+      obstacles = obstacles.filter(obstacle => {
+        const dist = Math.hypot(obstacle.x - angel.x, obstacle.y - angel.y);
+        if (dist < 35) {
+          lives--;
+          if (lives <= 0) {
+            gameOver();
+          }
+          return false;
+        }
+        return true;
+      });
+
+      // Colisão com nuvens brancas (também causam dano)
+      clouds = clouds.filter(cloud => {
+        const dist = Math.hypot(cloud.x - angel.x, cloud.y - angel.y);
+        if (dist < 40) {
+          lives--;
+          if (lives <= 0) {
+            gameOver();
+          }
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function showBlessing(text) {
+      blessingsOverlay.textContent = text;
+      blessingsOverlay.style.display = "block";
+      setTimeout(() => {
+        blessingsOverlay.style.display = "none";
+      }, 2500);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      const finalScore = stars + blessings * 5;
+      
+      if (finalScore > record) {
+        record = finalScore;
+        localStorage.setItem("angelRecord", record);
+      }
+      
+      saveScore(finalScore);
+      
+      gameOverScreen.style.display = "block";
+      
+      // Mostrar tabela de pontuações após 2 segundos
+      setTimeout(() => {
+        gameOverScreen.style.display = "none";
+        showScoreTable();
+      }, 2000);
+    }
+
+    function restartGame() {
+      gameOverScreen.style.display = "none";
+      scoreTable.style.display = "none";
+      startGame();
+    }
+
+    function startGame() {
+      startBtn.style.display = "none";
+      gameTitle.style.display = "none";
+      blessingsOverlay.style.display = "none";
+      gameOverScreen.style.display = "none";
+      scoreTable.style.display = "none";
+      
+      gameRunning = true;
+      stars = 0;
+      blessings = 0;
+      lives = 3;
+      level = 1;
+      gameTime = 0;
+      gameStartTime = Date.now();
+      animationFrame = 0;
+      
+      gameStars = [];
+      blessingItems = [];
+      clouds = [];
+      obstacles = [];
+      
+      angel.y = canvas.height / 2;
+      angel.targetY = canvas.height / 2;
+      
+      gameLoop();
+    }
+
+    function updateHUD() {
+      starsDiv.textContent = `⭐ Estrelas: ${stars}`;
+      blessingsDiv.textContent = `🙏 Bênçãos: ${blessings}`;
+      recordDiv.textContent = `👑 Recorde: ${record}`;
+      livesDiv.textContent = `💖 Vidas: ${lives}`;
+      levelDiv.textContent = `🚀 Nível: ${level}`;
+      timerDiv.textContent = `⏰ Tempo: ${Math.floor(gameTime / 1000)}s`;
+    }
+
+    function updateAngel() {
+      // Movimento suave em direção ao mouse/toque
+      angel.y += (angel.targetY - angel.y) * 0.1;
+      
+      // Limites da tela
+      angel.y = Math.max(25, Math.min(canvas.height - 25, angel.y));
+    }
+
+    // CONTROLES
+    canvas.addEventListener("mousemove", e => {
+      if (gameRunning) {
+        angel.targetY = e.clientY;
+      }
+    });
+
+    canvas.addEventListener("touchmove", e => {
+      if (gameRunning) {
+        e.preventDefault();
+        angel.targetY = e.touches[0].clientY;
+      }
+    });
+
+    // LOOP PRINCIPAL
+    function gameLoop() {
+      if (!gameRunning) return;
+
+      gameTime = Date.now() - gameStartTime;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      drawBackgroundStars();
+      drawGameItems();
+      drawAngel();
+      
+      spawnItems();
+      updateItems();
+      updateAngel();
+      updateLevel();
+      checkCollisions();
+      updateHUD();
+      
+      animationFrame++;
+      requestAnimationFrame(gameLoop);
+    }
+
+    // EVENT LISTENERS
+    startBtn.addEventListener("click", () => {
+      startGame();
+    });
+
+    restartBtn.addEventListener("click", restartGame);
+    closeScoreBtn.addEventListener("click", () => {
+      scoreTable.style.display = "none";
+      startBtn.style.display = "block";
+      gameTitle.style.display = "block";
+    });
+
+    // Inicialização
+    updateHUD();
+  </script>
+</body>
+</html>
